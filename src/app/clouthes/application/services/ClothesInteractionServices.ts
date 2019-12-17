@@ -51,9 +51,9 @@ export class ClothesInteractionServices {
         const localSource = await this.clothesRepo.findByNameAndType(name, type);
         const localSourceResp = await localSource.map(e => this.clothesResponseMapper.map(e));
 
-        // const firstSourcesClothes = await this.firstSourceRepo.getAllClothes();
+        const firstSourcesClothes = await this.firstSourceRepo.getAllClothes();
         const secondSourcesClothes = await this.secondSourceRepo.getAllClothes();
-        const fullResponse = ClothesResponse.filter(secondSourcesClothes, {name, type})
+        const fullResponse = ClothesResponse.filter(firstSourcesClothes.concat(secondSourcesClothes), {name, type})
             .concat(localSourceResp);
 
 
