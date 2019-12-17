@@ -1,0 +1,71 @@
+language: node_js
+node_js:
+- '10'
+services:
+- docker
+env:
+  global:
+  - DOCKER_REPO_URL="081430054411.dkr.ecr.us-west-2.amazonaws.com/pnkyswr/pnkyswr_api"
+  - ENV=$($TRAVIS_BUILD_DIR/deploy/branch_name_to_env.sh)
+  - CONTAINER_TAG=$ENV
+  - IMAGE_TAG=${DOCKER_REPO_URL}:${CONTAINER_TAG}
+  - secure: XlTZd/YOsTJS1T7ZSN8gcx8Tkxx+5s53YpxHA/JTt8wo6gnIT0SKmuSRyPh0gAplpTw0ODefGXEGCi1nF98Tnx+2G36QqRKdddIM6Izxrd3eASsFS7Z/t709zii1P+SFakT48y3hVOxKyRKIkFrNkoxM6tj0WO1HkB0arjB86EujpSMRqGPRG96RBcAUXJilnZXG94eQYalNyKVLBcCf64Uu9RxviPY02XM7AHaGrt/0QsYfOZpSmpUlMProlMoiY+aHTA9wfkWtxnep19xt9DVrU0MTv7iz+vV043tTnjd6xBmFS+rK5Oc6M3NAygh6FLhDsj4TGqjCQV+glOpuhGQbUZtsIN278owEqmohveUXNSOgXkGr5OIfxsS1JHymNkRT36Itw8QBdzTkSDYGFK/7q3soJyTdma3J0mKqeVxqdemslUXoOZ5pvICltV78oRNdSNM6bE7NT3nM3s1xyzx69EsAxx6rpy02q/NuriP3UA7cJimLUxqzhVovqwgv85AUBkZThqqn+905s5mGypHXb5xqaCdM11kN10Rr4HEd/Om1lPWAxjNMfh6dq+JNBB38R5Alwd7pf7r2dzlQnpP9ZrgYMmg40ELsMGEAh39q+49qqLCGsggqjZnYEm3VRvlg+og3HNVzNmfBoIhzsoom9/BIUxzyU5IrWi93CjQ=
+  - secure: Iweq38TR4XmlOaVYVQYngtb3CC1Xx4sa1WJDt++S9UQ0hPjtwjNTmecxAAgfrBZLFUX+qUBDT6BmX5aIJw+WeJGssFPjCNnaVyY7CcwJSa09NonYHci8lpXp6sE5FGB2r4FQ5dty//6RlrHxHeS5D3M4gXwvfXsK52pWKmB0t84Q28frGK7Y1yL4wRg95AMOcFKNipYQKpSS+yrLni55KuKndVQ+tFEMCsflWcdqNHM4tB5um17o4tyAGq4uE5ZoVm+q33bPm1g/KGEhM2g0wKExSZtikB2iMtBdRzQ16ISfFFWGQuiN+znwj/oDc4360Hv+JjwPiuTTvX9a5HRSu35/Ya5HBwYGLBJXXoktX8z8ltymDUSqcuDlc+5+bRs9szwo9JJa9ZQMXwannKVZTbJIO3wQ8lUmVvF9in8jWWLhTK2bXv1VUhgfqj9hCgoHuomBcPkGRtyG6chfBPppbrzmAPaCjp1awHzQBGK9D2uhTfA+PqwovvgShKWdpnvbs5W1T4WZuFJIxcQIpkAk5yRCVsYVPUcJRn2M6FhH22Z3RabVozB5Oa5lSXJTBvi/GU28yQRT5woQwcxvCjZf5HWYU9urqg33WX7rvPeMEOwPNXvIeE/3IOLIHSOGdFDP92QVw9SBu1ZpzeC0ESb5TLtKFtXUVX80deba01cXLe8=
+addons:
+  postgresql: '10'
+cache:
+  directories:
+  - node_modules
+jobs:
+  include:
+  - stage: Run tslint and audit
+    install:
+    - npm i -g tslint audit-ci typescript
+    before_script: 
+    - npm i
+    script:
+    - npm run tslint
+    - audit-ci --moderate
+  - stage: Run tests
+    install:
+    - npm i -g typescript codecov
+    script:
+    - npm run build
+    - npm run test
+    after_success:
+    - npm run report-coverage
+  - stage: Build and push image
+    if: branch =~ ^(staging|dev)$ and type = push
+    env:
+    - NODE_ENV="$TRAVIS_BRANCH"
+    before_install:
+    - pip install --user awscli jq
+    - export PATH=$PATH:$HOME/.local/bin
+    install:  
+    - npm install -g typescript
+    script:
+    - npm i  
+    - npm run build
+    - docker build -t $IMAGE_TAG --build-arg NODE_ENV=$NODE_ENV .
+    - "$(aws ecr get-login --no-include-email --region us-west-2)"
+    - docker push $IMAGE_TAG
+  - stage: Deploy Dev
+    if: branch =~ ^(staging|dev)$ and type = push
+    env:
+    - ANSIBLE_HOST_KEY_CHECKING=false
+    - AWS_REGION="us-west-2"
+    - HOST_NAME="$ENV"
+    - DB_PORT="5432"
+    before_install:
+    - openssl aes-256-cbc -K $encrypted_d6c4803a9e0f_key -iv $encrypted_d6c4803a9e0f_iv
+      -in pnkyswr.pem.enc -out ./pnkyswr.pem -d
+    - sudo chmod 0700 ./pnkyswr.pem
+    install:
+    - sudo pip install ansible botocore boto3
+    before_script:
+    - cd infrastructure/ansible
+    script:
+    - ansible-playbook -i inventory -b  -u ec2-user --extra-vars "image_tag=${IMAGE_TAG}
+      aws_access_key=${AWS_ACCESS_KEY_ID} aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}
+      aws_region=${AWS_REGION} host_name=${HOST_NAME} " --private-key
+      ../../pnkyswr.pem playbook.yml
