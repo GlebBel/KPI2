@@ -2,6 +2,10 @@ import {injectable} from 'inversify';
 import {ClothesType} from '../enams/ClothesType';
 import {ClothesResponse} from '../response/ClothesResponse';
 const axios = require('axios');
+const https = require('https');
+
+axios.defaults.httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50000, keepAliveMsecs: 3000000 });
+
 
 @injectable()
 export class FirstSourcesRepository {

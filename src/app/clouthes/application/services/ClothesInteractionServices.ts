@@ -9,6 +9,7 @@ import {ClothesResponseMapper} from '../mapper/ClothesResponseMapper';
 import {FirstSourcesRepository} from '../../data/repository/FirstSourcesRepository';
 import {SecondSourcesRepisitory} from '../../data/repository/SecondSourcesRepisitory';
 import {ClothesType} from '../../data/enams/ClothesType';
+import AppInitializer from '../../../../AppInitializer';
 
 @injectable()
 export class ClothesInteractionServices {
@@ -50,10 +51,15 @@ export class ClothesInteractionServices {
 
         const localSource = await this.clothesRepo.findByNameAndType(name, type);
         const localSourceResp = await localSource.map(e => this.clothesResponseMapper.map(e));
+        //
+        // const firstSourcesClothes = await this.firstSourceRepo.getAllClothes();
+        // const secondSourcesClothes = await this.secondSourceRepo.getAllClothes();
 
-        const firstSourcesClothes = await this.firstSourceRepo.getAllClothes();
-        const secondSourcesClothes = await this.secondSourceRepo.getAllClothes();
-        const fullResponse = ClothesResponse.filter(firstSourcesClothes.concat(secondSourcesClothes), {name, type})
+        const a = AppInitializer.firstSourseData;
+
+        const fullResponse = ClothesResponse.filter(
+                AppInitializer.firstSourseData.concat(AppInitializer.secondSourseData), {name, type}
+            )
             .concat(localSourceResp);
 
 

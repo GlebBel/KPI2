@@ -1,5 +1,5 @@
 import * as express from 'express';
-import {Container} from 'inversify';
+import {Container, inject} from 'inversify';
 import * as ExpressPinoLogger from 'express-pino-logger';
 import * as bodyParser from 'body-parser';
 
@@ -18,12 +18,27 @@ import Sentry, {isInitSentry} from './configuration/Sentry';
 import {clsContext} from './configuration/CLS';
 import {registerEventListeners} from './core/common/events';
 import {initSocket} from './core/socket/WebSocketsInit';
+import {ClothesResponse} from './app/clouthes/data/response/ClothesResponse';
+import {FirstSourcesRepository} from './app/clouthes/data/repository/FirstSourcesRepository';
+import {SecondSourcesRepisitory} from './app/clouthes/data/repository/SecondSourcesRepisitory';
 
 class AppInitializer {
     public app: express.Application;
     public router: express.Router;
     public diContainer: Container;
     public routingControllerOptions: RoutingControllersOptions;
+    public firstSourseData: ClothesResponse[];
+    public secondSourseData: ClothesResponse[];
+    private firstSourceRepo: FirstSourcesRepository;
+    private secondSourceRepo: SecondSourcesRepisitory;
+
+    constructor(
+        @inject(FirstSourcesRepository) firstSourceRepo: FirstSourcesRepository,
+        @inject(SecondSourcesRepisitory) secondSourceRepo: SecondSourcesRepisitory,
+    ){
+        this.firstSourceRepo = firstSourceRepo;
+        this.secondSourceRepo = secondSourceRepo;
+    }
 
     public async initialize(): Promise<express.Application> {
 
@@ -40,6 +55,8 @@ class AppInitializer {
         this.initRoutes();
 
         this.initEventListeners();
+
+        await this.getDataFromRemoteSources();
 
         if (config.node_env !== 'prod') {
             this.initSwagger();
@@ -100,9 +117,20 @@ class AppInitializer {
         registerEventListeners(this.diContainer);
     }
 
-    private initSockets() {
-        initSocket(this.diContainer)
+
+    private async getDataFromRemoteSources(): Promise<void> {
+
+        logger.info('Starting fetching data');
+        this.firstSourseData = await this.firstSourceRepo.getAllClothes();
+        this.secondSourseData = await this.secondSourceRepo.getAllClothes();
+
+        logger.info('Data fetched successfully');
+
+        setTimeout(async () => {
+            this.firstSourseData = await this.firstSourceRepo.getAllClothes();
+            this.secondSourseData = await this.secondSourceRepo.getAllClothes();
+        }, 86400000)
     }
 }
 
-export default new AppInitializer();
+export default new AppInitializer(new FirstSourcesRepository(), new SecondSourcesRepisitory());
