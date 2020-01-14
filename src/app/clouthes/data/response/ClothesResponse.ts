@@ -42,19 +42,23 @@ export class ClothesResponse {
         return newClothes
     }
 
-    public static filter(clothesArray: ClothesResponse[], options: {name?: string, type?: ClothesType}): ClothesResponse[]{
+    public static filter(clothesArray: ClothesResponse[], options: {name?: string, type?: ClothesType}): ClothesResponse[] {
         return clothesArray.filter(clothes => {
             let elem: ClothesResponse | null = null;
 
             if (options.name) {
-                elem = clothes.name === options.name ? clothes : null;
+                if (clothes.name === options.name) elem = clothes;
+                else
+                    return null;
             }
 
             if (options.type) {
-                elem = clothes.clothesType === options.type ? clothes : null;
+                if (clothes.clothesType === options.type) elem = clothes;
+                else
+                    return null;
             }
 
-            return elem || null
+            return elem || null;
         })
     }
 }

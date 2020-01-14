@@ -8,7 +8,8 @@ import {ClothesResponse} from './data/response/ClothesResponse';
 import {ClothesInteractionServices} from './application/services/ClothesInteractionServices';
 import {FirstSourcesRepository} from './data/repository/FirstSourcesRepository';
 import {SecondSourcesRepisitory} from './data/repository/SecondSourcesRepisitory';
-
+// import {AuthController} from '../auth/web/AuthController';
+//
 export default new ContainerModule((
     bind: interfaces.Bind,
     unbind: interfaces.Unbind,
@@ -20,5 +21,6 @@ export default new ContainerModule((
     bind(ClothesInteractionServices).toSelf();
     bind(FirstSourcesRepository).toSelf();
     bind(SecondSourcesRepisitory).toSelf();
+    // bind(AuthController).toSelf();
     bind<Mapper<ClothesEntity, ClothesResponse>>(ClothesResponseMapper).toSelf()
 });

@@ -1,60 +1,34 @@
 import {injectable} from 'inversify';
 import {ClothesResponse} from '../response/ClothesResponse';
 const axios = require('axios');
-const https = require('https');
+const http = require('http');
 const hp =  require("xmlhttprequest").XMLHttpRequest;
+
+import parallelLimit from 'async/parallelLimit';
+import * as asyncc from "async"
 const promiseLimit = require('promise-limit');
 let request = new hp();
 
 
-axios.defaults.httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50000, keepAliveMsecs: 3000000 });
+axios.defaults.httpsAgent = new http.Agent({ keepAlive: true, maxSockets: 100, keepAliveMsecs: 30000 });
 
 @injectable()
 export class SecondSourcesRepisitory {
 
     public async getAllClothes(): Promise<ClothesResponse[]> {
-        const clothesIds = await this.getAllClothesId();
-        const collector: ClothesResponse[] = [];
+            const clothesIds = await this.getAllClothesId();
+            const collector: ClothesResponse[] = [];
 
-        const arrayPromises = clothesIds.map(e => {
-            return this.getClothesById(e.id);
-        });
+            const arrayPromises = await clothesIds.map(e => {
+                return this.getClothesById(e.id);
+            });
 
-        // const ca = this.chunkArray(arrayPromises, 1000);
-        // const aa = ca.map(e => Promise.all(e));
-        //
-        // // aa.reduce(async (previousPromise, nextAsyncFunction) => {
-        // //     await previousPromise;
-        // //     const result = await nextAsyncFunction();
-        // //     console.log(result);
-        // // }, Promise.resolve());
-        //
-        // aa.reduce((promiseChain, currentTask) => {
-        //     return promiseChain.then(chainResults =>
-        //         currentTask.then(currentResult =>
-        //             [ ...chainResults, currentResult ]
-        //         )
-        //     );
-        // }, Promise.resolve([])).then(arrayOfResults => {
-        //     const uu = arrayOfResults;
-        //     console.log(uu)
-        // });
-        //
-        // const clothes = Promise.all(await clothesIds.map(e => {
-        //     return this.getClothesById(e.id);
-        // }));
-        // clothesIds.forEach((elem) => {
-        //     request.open('GET', `http://localhost:8083/api/clothes/details/${elem.id}`, false);  // `false` makes the request synchronous
-        //     request.send(null);
-        //     const a = JSON.parse(request.responseText).data;
-        //     collector.push(a);
-        // });
-        const b = await  this.promiseAllLimit(arrayPromises, 100, async (e) => {
-            const d = await e;
-            console.log(e)
-        });
-        console.log(b)
-        return collector
+
+            // //const resp = parallelLimit(arrayPromises, 10);
+        // const resp = asyncc.parallelLimit(arrayPromises, 10);
+
+
+            return Promise.all(arrayPromises)
     }
 
     private async getAllClothesId(): Promise<any[]> {
@@ -64,6 +38,7 @@ export class SecondSourcesRepisitory {
         let promises: Promise<any>[]= [];
         do {
             data = await axios.get(`http://localhost:8083/api/clothes/price-list?page=${page}&size=5000`);
+            // data = http.get(`http://localhost:8083/api/clothes/price-list?page=${page}&size=5000`);
             collector = collector.concat(data.data.data);
             page++;
         } while (data.data.data.length);
@@ -97,5 +72,20 @@ export class SecondSourcesRepisitory {
             });
         }));
     }
+
+    private asyncLimit(fn, n) {
+        let pendingPromises: any[] = [];
+        return async function (...args) {
+            while (pendingPromises.length >= n) {
+                await Promise.race(pendingPromises).catch(() => {});
+            }
+
+            const p = fn.apply(this, args);
+            pendingPromises.push(p);
+            await p.catch(() => {});
+            pendingPromises = pendingPromises.filter(pending => pending !== p);
+            return p;
+        };
+    };
 
 }

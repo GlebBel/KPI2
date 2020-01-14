@@ -2,6 +2,7 @@ import * as express from 'express';
 import {Container, inject} from 'inversify';
 import * as ExpressPinoLogger from 'express-pino-logger';
 import * as bodyParser from 'body-parser';
+const cote = require('cote');
 
 import config from './configuration/Config';
 import logger from './configuration/Logger';
@@ -17,7 +18,6 @@ import {createConnectionPool} from './configuration/Postgres';
 import Sentry, {isInitSentry} from './configuration/Sentry';
 import {clsContext} from './configuration/CLS';
 import {registerEventListeners} from './core/common/events';
-import {initSocket} from './core/socket/WebSocketsInit';
 import {ClothesResponse} from './app/clouthes/data/response/ClothesResponse';
 import {FirstSourcesRepository} from './app/clouthes/data/repository/FirstSourcesRepository';
 import {SecondSourcesRepisitory} from './app/clouthes/data/repository/SecondSourcesRepisitory';
@@ -47,6 +47,7 @@ class AppInitializer {
         this.initHttpLogging();
 
         this.initContainer();
+
 
         this.initMiddleware();
 
@@ -79,9 +80,48 @@ class AppInitializer {
             clsContext.bindEmitter(res);
             clsContext.run(() => next());
         });
+
         if (isInitSentry()) {
             this.app.use(Sentry.Handlers.requestHandler());
         }
+        this.app.post('/api/sms_code', (req, res) => {
+            try {
+                const requester = new cote.Requester({name: 'sms'});
+
+                const request = {type: 'sms', phone: req.body.phone};
+
+                requester.send(request, (resp) => {
+                  res.send('ok')
+                })
+            }
+            catch (e) {
+                console.log(e);
+            }
+        });
+
+        this.app.post('/api/login', (request, response) => {
+            const requester = new cote.Requester({name: 'login'});
+
+            const req = {
+                type: 'login',
+                req: {
+                    body: request.body,
+                    headers: request.headers,
+                    method: request.method,
+                    query: request.query
+                },
+                res: {
+                    headers: {...response.getHeaders()}
+                }
+            };
+
+            // const token = await sendAsync(req, requester);
+
+            requester.send(req, (token, err) => {
+                response.send(token)
+            })
+        });
+
     }
 
 
@@ -93,6 +133,30 @@ class AppInitializer {
             routePrefix: config.apiPrefix,
             defaultErrorHandler: false,
             validation: true,
+            authorizationChecker: (action: Action) => {
+                return new Promise(resolve => {
+                    const requester = new cote.Requester({name: 'login'});
+
+                    const req = {
+                        type: 'isAuthorized',
+                        req: {
+                            body: action.request.body,
+                            headers: action.request.headers,
+                            method: action.request.method,
+                            query: action.request.query
+                        },
+                        res: {
+                            headers: {...action.response.getHeaders()}
+                        }
+                    };
+
+                    // const token = await sendAsync(req, requester);
+
+                    requester.send(req, (isAuthorized, err) => {
+                        resolve(isAuthorized)
+                    })})
+            },
+            // currentUserChecker: (action: Action) => authChecker.getAuthUser(action.request, action.response)
         };
         useContainerRoutingController(this.diContainer);
         useExpressServer(this.app, this.routingControllerOptions);
@@ -121,8 +185,8 @@ class AppInitializer {
     private async getDataFromRemoteSources(): Promise<void> {
 
         logger.info('Starting fetching data');
-        this.firstSourseData = await this.firstSourceRepo.getAllClothes();
-        this.secondSourseData = await this.secondSourceRepo.getAllClothes();
+        //this.firstSourseData = await this.firstSourceRepo.getAllClothes();
+        //this.secondSourseData = await this.secondSourceRepo.getAllClothes();
 
         logger.info('Data fetched successfully');
 

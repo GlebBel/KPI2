@@ -40,10 +40,10 @@ export class ClothesInteractionServices {
     public async getAll(): Promise<ClothesResponse[]> {
         const localSource = await this.clothesRepo.getAll();
         const localSourceResp = await localSource.map(e => this.clothesResponseMapper.map(e));
-        const firstSourcesClothes = await this.firstSourceRepo.getAllClothes();
-        const secondSourcesClothes = await this.secondSourceRepo.getAllClothes();
-        const fullResponse = firstSourcesClothes.concat(secondSourcesClothes, localSourceResp);
-        return fullResponse;
+        //const firstSourcesClothes = await this.firstSourceRepo.getAllClothes();
+       // const secondSourcesClothes = await this.secondSourceRepo.getAllClothes();
+        //const fullResponse = firstSourcesClothes.concat(secondSourcesClothes, localSourceResp);
+        return localSourceResp;
     }
 
     @Transaction()
@@ -51,11 +51,6 @@ export class ClothesInteractionServices {
 
         const localSource = await this.clothesRepo.findByNameAndType(name, type);
         const localSourceResp = await localSource.map(e => this.clothesResponseMapper.map(e));
-        //
-        // const firstSourcesClothes = await this.firstSourceRepo.getAllClothes();
-        // const secondSourcesClothes = await this.secondSourceRepo.getAllClothes();
-
-        const a = AppInitializer.firstSourseData;
 
         const fullResponse = ClothesResponse.filter(
                 AppInitializer.firstSourseData.concat(AppInitializer.secondSourseData), {name, type}

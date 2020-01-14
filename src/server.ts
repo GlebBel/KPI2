@@ -3,6 +3,12 @@ import config from './configuration/Config';
 import logger from './configuration/Logger';
 import {initSocket} from './core/socket/WebSocketsInit';
 
+var https = require('https');
+var http = require('http');
+
+https.globalAgent.maxSockets = 5;
+http.globalAgent.maxSockets = 5;
+
 class Server {
 
     private server: any;
