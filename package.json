@@ -52,7 +52,7 @@
     "ramda": "^0.26.1",
     "routing-controllers": "^0.7.7",
     "routing-controllers-openapi": "^1.7.0",
-    "socket.io": "^2.3.0",
+    "socket.io": "^2.5.0",
     "swagger-ui-express": "^4.0.7",
     "twilio": "^3.33.2",
     "typeorm": "^0.2.18"
